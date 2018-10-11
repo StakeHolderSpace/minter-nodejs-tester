@@ -1,0 +1,27 @@
+{
+	"name": "minter-tests",
+	"version": "1.0.0",
+	"description": "",
+	"main": "index.js",
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1",
+		"start": "babel-node index.js",
+		"build": "babel src -d lib"
+	},
+	"author": "",
+	"license": "ISC",
+	"dependencies": {
+		"async": "^2.6.1",
+		"minimist": "^1.2.0",
+		"minter-js-sdk": "^0.3.0",
+		"minterjs-wallet": "^2.1.1",
+		"nconf": "^0.10.0",
+		"winston": "^3.1.0"
+	},
+	"devDependencies": {
+		"@babel/cli": "^7.1.2",
+		"@babel/core": "^7.1.2",
+		"@babel/node": "^7.0.0",
+		"@babel/preset-env": "^7.1.0"
+	}
+}
