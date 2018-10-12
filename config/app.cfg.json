@@ -1,0 +1,15 @@
+{
+	"verbose": true,
+	"pathToWalletsFile": "/config/wallets.json",
+	"totalTxCount": 10,
+	"totalWalletsCount": 500,
+	"delegateToNodePubKey": "Mp8f053f3802d33f5e7092bb01ca99ae77606f4faf759c72560d5ee69b8e191a56",
+	"rootWallet": {
+		"sMnemonic": "parade jealous assault danger filter aim tag slight help injury wave hair"
+	},
+	"minterNodeList": [
+		"https://minter-node-1.testnet.minter.network",
+		"https://minter-node-2.testnet.minter.network",
+		"https://minter-node-3.testnet.minter.network"
+	]
+}

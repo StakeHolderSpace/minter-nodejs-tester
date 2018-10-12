@@ -12,6 +12,8 @@ Set "CD=%~dp0"
 IF %CD:~-1%==\ Set CD=%CD:~0,-1%
 
 :: set NODE_ENV=development
+:: set NODE_ENV=production
+set NODE_ENV=development
 
 Set TOOLS_DIR=%CD%\tools
 Set APP_DIR=%CD%\app
@@ -38,7 +40,7 @@ if %NODEJS_EXIST%==N (
 
 :: #################################################################################################
 echo -===== Run Application ======-
-if exist "%CD%\app\app.js" start "" "node.exe" " --experimental-modules %CD%\app\app.js"
+if exist "%CD%\src\app.js" start "" "npm" "run start"
 
 popd
 endlocal

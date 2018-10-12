@@ -2,9 +2,9 @@
 .idea
 .vscode
 
-nodejs
+dist
 node_modules
-usbwebserver
+
 
 
 Thumbs.db

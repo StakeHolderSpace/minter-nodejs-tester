@@ -1,13 +1,12 @@
 {
 	"presets": [
 		[
-			"@babel/env",
+			"env",
 			{
-				"targets": {
-					"node": "current"
-				}
+
+				"useBuiltIns": "usage",
+				"debug": false
 			}
-		],
-		"@babel/preset-es2015"
+		]
 	]
 }
