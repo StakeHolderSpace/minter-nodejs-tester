@@ -249,46 +249,55 @@ oApp.init().then(async () => {
 	}
 
 	if (arWalletInstances.length) {
-		// Delegate
+
+		// Send
 		(async () => {
 			const
-					iTotalTxCount = parseInt(oConfig.get('totalTxCount')) || 10,
-					iTxPerWallet  = Math.round(iTotalTxCount / parseInt(arWalletInstances.length)) || 1;
-
-			let iDelegateAmount = 50;
+					iTotalTestDuration = parseInt(oConfig.get('totalTestDuration')) || 1,
+					iTotalWalletsCount = parseInt(oConfig.get('totalWalletsCount')) || 10,
+					iTxAmount          = 0.2,
+					iTotalTxPerWallet  = Math.round(iTotalTestDuration * 60 / 5),
+					iFundAmount        = iTxAmount * iTotalWalletsCount * iTotalTxPerWallet;
 
 			oLogger.debug('start ' + new Date());
-			for (let iTxEpoch = 0; iTxEpoch < iTxPerWallet; iTxEpoch++) {
-				await Promise.all(arWalletInstances.map(async (oWallet) => {
-					let sAddress = oWallet.getAddressString();
-					return oApp.delegateTo(oWallet, iDelegateAmount).then((sTxHash) => {
-						oLogger.debug(`Epoch ${iTxEpoch}/${iTxPerWallet} sAddress: ${sAddress} sTxHash ${sTxHash}`);
-					}).catch((err) => {
-						oLogger.error(`Epoch ${iTxEpoch}/${iTxPerWallet} sAddress: ${sAddress} Err ${err.message}`);
-					});
-				}));
+
+			for (const oWallet of arWalletInstances) {
+				let sAddress = oWallet.getAddressString();
+
+				await oApp.sendCoinTo(oRootWallet, sAddress, iFundAmount).then((sTxHash) => {
+					oLogger.debug(`Success sent ${iFundAmount} to sAddress: ${sAddress} sTxHash ${sTxHash}`);
+				}).catch((err) => {
+					oLogger.error(`Failed to send ${iFundAmount} to sAddress: ${sAddress}  Err ${err.message}`);
+				});
 			}
 
 			oLogger.debug('stop ' + new Date());
 
 		})();
+		/*
+				// Delegate
+				(async () => {
+					const
+							iTotalTxCount = parseInt(oConfig.get('totalTxCount')) || 10,
+							iTxPerWallet  = Math.round(iTotalTxCount / parseInt(arWalletInstances.length)) || 1;
 
-//	dfdSave.then(() => {
-//		return new Promise((resolve, reject) => {
-//			let
-//					iTotalTxCount = parseInt(oConfig.get('totalTxCount')) || 10,
-//					iTxPerWallet  = Math.round(iTotalTxCount / parseInt(arWalletInstances.length)) || 1;
-//
-//			//
-//			arWalletInstances.forEach((oWallet) => {
-//				let iDelegateAmount = 0.1;
-//				oApp.sendCoinTo(oRootWallet, oWallet.getAddressString(), iDelegateAmount).catch(err => {
-//					oLogger.error(err.message);
-//				});
-//			});
-//
-//		});
-//	});
+					let iDelegateAmount = 50;
 
+					oLogger.debug('start ' + new Date());
+					for (let iTxEpoch = 0; iTxEpoch < iTxPerWallet; iTxEpoch++) {
+						await Promise.all(arWalletInstances.map(async (oWallet) => {
+							let sAddress = oWallet.getAddressString();
+							return oApp.delegateTo(oWallet, iDelegateAmount).then((sTxHash) => {
+								oLogger.debug(`Epoch ${iTxEpoch}/${iTxPerWallet} sAddress: ${sAddress} sTxHash ${sTxHash}`);
+							}).catch((err) => {
+								oLogger.error(`Epoch ${iTxEpoch}/${iTxPerWallet} sAddress: ${sAddress} Err ${err.message}`);
+							});
+						}));
+					}
+
+					oLogger.debug('stop ' + new Date());
+
+				})();
+		*/
 	}
 });

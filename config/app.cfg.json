@@ -3,6 +3,7 @@
 	"pathToWalletsFile": "/config/wallets.json",
 	"totalWalletsCount": 10,
 	"totalTxCount": 100,
+	"totalTestDuration": 5,
 	"delegateToNodePubKey": "Mp8f053f3802d33f5e7092bb01ca99ae77606f4faf759c72560d5ee69b8e191a56",
 	"rootWallet": {
 		"sMnemonic": "parade jealous assault danger filter aim tag slight help injury wave hair"
