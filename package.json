@@ -11,6 +11,7 @@
 	"author": "",
 	"license": "ISC",
 	"dependencies": {
+		"cli-progress": "^2.1.0",
 		"lodash.has": "^4.5.2",
 		"minimist": "^1.2.0",
 		"minter-js-sdk": "^0.3.0",
