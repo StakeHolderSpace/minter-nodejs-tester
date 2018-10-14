@@ -225,6 +225,10 @@ const App = (function() {
 
 	};
 
+	App.prototype.getBalance = async function(sAddress) {
+
+	};
+
 	App.prototype.init = async function() {
 		return 'ready';
 	};
@@ -253,27 +257,82 @@ oApp.init().then(async () => {
 		// Send
 		(async () => {
 			const
-					iTotalTestDuration = parseInt(oConfig.get('totalTestDuration')) || 1,
-					iTotalWalletsCount = parseInt(oConfig.get('totalWalletsCount')) || 10,
-					iTxAmount          = 0.2,
-					iTotalTxPerWallet  = Math.round(iTotalTestDuration * 60 / 5),
-					iFundAmount        = iTxAmount * iTotalWalletsCount * iTotalTxPerWallet;
+					fSendFee            = 0.1,
+					iTotalTestDuration  = parseInt(oConfig.get('totalTestDuration')) || 1,//минуты
+					iTotalWalletsCount  = parseInt(oConfig.get('totalWalletsCount')) || 10,
+					iTxAmount           = 0.1,
+					iTotalTxPerWallet   = Math.round(iTotalTestDuration * 60 / 5),
+					fTotalFundPerWallet = (iTxAmount + fSendFee) * iTotalTxPerWallet,
+					fTotalBudget        = fTotalFundPerWallet * iTotalWalletsCount;
 
 			oLogger.debug('start ' + new Date());
+			/* Синхронное пополнение
+						for (const oWallet of arWalletInstances) {
+							let sAddress = oWallet.getAddressString();
 
-			for (const oWallet of arWalletInstances) {
-				let sAddress = oWallet.getAddressString();
+							await oApp.sendCoinTo(oRootWallet, sAddress, fTotalFundPerWallet).then((sTxHash) => {
+								oLogger.debug(`Success sent ${fTotalFundPerWallet} to sAddress: ${sAddress} sTxHash ${sTxHash}`);
+							}).catch((err) => {
+								oLogger.error(`Failed to send ${fTotalFundPerWallet} to sAddress: ${sAddress}  Err ${err.message}`);
+							});
+						}
+			*/
 
-				await oApp.sendCoinTo(oRootWallet, sAddress, iFundAmount).then((sTxHash) => {
-					oLogger.debug(`Success sent ${iFundAmount} to sAddress: ${sAddress} sTxHash ${sTxHash}`);
-				}).catch((err) => {
-					oLogger.error(`Failed to send ${iFundAmount} to sAddress: ${sAddress}  Err ${err.message}`);
-				});
+			// Асинхронное пополнение
+			const arFundedWallets = [];
+
+			const SplitFundWallet = async (oWalletFrom, oWalletTo) => {
+				// Получить бюджет кошелька
+				let fBalance = await oApp.getBalance(oWalletFrom.getAddressString());
+				let fFundAmount = (fBalance / 2) - fSendFee;
+				// Отправить половину
+				if (0 < fFundAmount) {
+					return await oApp.sendCoinTo(oWalletFrom, oWalletTo.getAddressString(), fFundAmount);
+				} else {
+					throw new Error(
+							`Not enougth tokens to send. Wal:${oWalletFrom.getAddressString()} balance:${fBalance} needle: ${fBalance +
+							fSendFee}`);
+				}
+			};
+
+			try {
+				// Пополняем первый кошелек общим бюджетом
+				let oWallet = arWalletInstances.pop();
+				await oApp.sendCoinTo(oRootWallet, oWallet.getAddressString(), fTotalBudget);
+				arFundedWallets.push(oWallet);
+
+				while (arWalletInstances.length) {
+					// Асинхронно Пополняем с каждого кошелька с монетами все остальные, делением пополам бюджета кошелька
+					await Promise.all(arFundedWallets.map(async (oWalletFrom) => {
+
+						let oWalletTo = arWalletInstances.pop();
+						if (!oWalletTo) {
+							return Promise.resolve();
+						}
+
+						return SplitFundWallet(oWalletFrom, oWalletTo).then((sTxHash) => {
+							oLogger.debug(`Success funded wallet: ${oWalletTo.getAddressString()} sTxHash ${sTxHash}`);
+						}).catch((err) => {
+							oLogger.error(`Failed fund wallet: ${oWalletTo.getAddressString()} Err ${err.message}`);
+						});
+
+					}));
+				}
+
+				//Перекидываем кошельки в родной массив
+				while (arFundedWallets.length) {
+					arWalletInstances.push(arFundedWallets.pop());
+				}
+
+			}
+			catch (err) {
+				oLogger.error(err.message);
 			}
 
 			oLogger.debug('stop ' + new Date());
 
 		})();
+
 		/*
 				// Delegate
 				(async () => {
@@ -300,4 +359,5 @@ oApp.init().then(async () => {
 				})();
 		*/
 	}
-});
+})
+;
