@@ -20,6 +20,7 @@ const
 		}),
 		oPath         = require('path'),
 		oFs           = require('fs'),
+		oAxios        = require('axios'),
 		CliProgress   = require('cli-progress'),
 		_Has          = require('lodash.has'),
 		sUtilsRoot    = oPath.join(__dirname, './lib/utils/'),
@@ -53,6 +54,7 @@ const App = (function() {
 
 	const arWalletInstances = [];
 	const arMinterNodeList = Array.from(oConfig.get('minterNodeList'));
+	const oHttpClient = oAxios.create({baseURL: arMinterNodeList[Math.floor(Math.random() * arMinterNodeList.length)]});
 
 	/**
 	 *
@@ -63,6 +65,11 @@ const App = (function() {
 
 	}
 
+	/**
+	 *
+	 * @param iTotalWalletsCount
+	 * @returns {Promise<Array>}
+	 */
 	App.prototype.createWallets = async function(iTotalWalletsCount) {
 		let _iTotalWalletsCount = parseInt(iTotalWalletsCount) || 1;
 		const oCliProgress = new CliProgress.Bar({
@@ -79,6 +86,11 @@ const App = (function() {
 		return arWalletInstances;
 	};
 
+	/**
+	 *
+	 * @param sPathToWalletsFile
+	 * @returns {Promise<undefined>}
+	 */
 	App.prototype.saveWallets = async function(sPathToWalletsFile) {
 		let sDefaultWalletsPath = oPath.join(__dirname, oConfig.get('pathToWalletsFile') || './config/wallets.json');
 		const _sPathToWalletsFile = sPathToWalletsFile || sDefaultWalletsPath;
@@ -97,6 +109,11 @@ const App = (function() {
 		});
 	};
 
+	/**
+	 *
+	 * @param sPathToWalletsFile
+	 * @returns {Promise<Array>}
+	 */
 	App.prototype.loadWallets = async function(sPathToWalletsFile) {
 		let sDefaultWalletsPath = oPath.join(__dirname, oConfig.get('pathToWalletsFile') || './config/wallets.json');
 		const _sPathToWalletsFile = sPathToWalletsFile || sDefaultWalletsPath;
@@ -136,10 +153,16 @@ const App = (function() {
 
 	/**
 	 *
+	 * @returns {Array}
+	 */
+	App.prototype.getWallets = function() {
+		return arWalletInstances;
+	};
+
+	/**
+	 *
 	 * @param oWallet
 	 * @param iDelegateAmount
-	 * @param cb
-	 * @returns {*}
 	 */
 	App.prototype.delegateTo = async function(oWallet, iDelegateAmount) {
 		let
@@ -225,10 +248,23 @@ const App = (function() {
 
 	};
 
+	/**
+	 *
+	 * @param sAddress
+	 * @returns {Promise<number>}
+	 */
 	App.prototype.getBalance = async function(sAddress) {
+		let
+				iConvertDelimiter = Math.pow(10, 18);
 
+		return oHttpClient.get(`/api/balance/${sAddress}`).
+				then((response) => Number(response.data.result.count)) / iConvertDelimiter;
 	};
 
+	/**
+	 *
+	 * @returns {Promise<string>}
+	 */
 	App.prototype.init = async function() {
 		return 'ready';
 	};
@@ -285,7 +321,8 @@ oApp.init().then(async () => {
 				// Получить бюджет кошелька
 				let fBalance = await oApp.getBalance(oWalletFrom.getAddressString());
 				let fFundAmount = (fBalance / 2) - fSendFee;
-				// Отправить половину
+
+				// Отправить 0.5 о баланса
 				if (0 < fFundAmount) {
 					return await oApp.sendCoinTo(oWalletFrom, oWalletTo.getAddressString(), fFundAmount);
 				} else {
