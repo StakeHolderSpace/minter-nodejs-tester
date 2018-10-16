@@ -1,6 +1,8 @@
 // for debuging add to console command before run app.js : set NODE_ENV=development
 
 'use strict';
+const axios = require('axios');
+
 require = require('esm')(module);
 
 const
@@ -20,7 +22,6 @@ const
 		}),
 		oPath         = require('path'),
 		oFs           = require('fs'),
-		oAxios        = require('axios'),
 		CliProgress   = require('cli-progress'),
 		_Has          = require('lodash.has'),
 		sUtilsRoot    = oPath.join(__dirname, './lib/utils/'),
@@ -51,10 +52,10 @@ process.on('uncaughtException', function(err) {
 });
 */
 const App = (function() {
-
+	const iPipDivider = Math.pow(10, 18);
 	const arWalletInstances = [];
 	const arMinterNodeList = Array.from(oConfig.get('minterNodeList'));
-	const oHttpClient = oAxios.create({baseURL: arMinterNodeList[Math.floor(Math.random() * arMinterNodeList.length)]});
+	const oHttpClient = axios.create({baseURL: arMinterNodeList[Math.floor(Math.random() * arMinterNodeList.length)]});
 
 	/**
 	 *
@@ -179,7 +180,7 @@ const App = (function() {
 				coinSymbol   : 'MNT',
 				stake        : iAmount,
 				feeCoinSymbol: 'MNT',
-				message      : 'test Tx'
+				message      : ''
 			});
 
 			return oPostTx(oTxParams).then(async (response) => {
@@ -204,34 +205,30 @@ const App = (function() {
 	 *
 	 * @param oWalletFrom
 	 * @param sToAddress
-	 * @param iFundAmount
-	 * @param cb
-	 * @returns {*}
+	 * @param fFundAmount
+	 * @returns {Promise<T>}
 	 */
-	App.prototype.sendCoinTo = async function(oWalletFrom, sToAddress, iFundAmount) {
-
+	App.prototype.sendCoinTo = async function(oWalletFrom, sToAddress, fFundAmount) {
 		let
-				iAmount     = iFundAmount || 0.5,
+				fAmount     = parseFloat(fFundAmount) || 0.5,
 				_sToAddress = sToAddress || oWalletFrom.getAddressString(),
 				sNodeUrl    = arMinterNodeList[Math.floor(Math.random() * arMinterNodeList.length)],
 				oPostTx     = null,
 				oTxParams   = null;
 
-		if ((oWalletFrom instanceof oMinterWallet.default) && 0 < iAmount) {
+		if ((oWalletFrom instanceof oMinterWallet.default) && 0 < fAmount) {
 			oPostTx = new oMinterSdk.PostTx({baseURL: sNodeUrl});
 			oTxParams = new oMinterSdk.SendTxParams({
 				privateKey   : oWalletFrom.getPrivateKeyString(),
 				address      : _sToAddress,
-				amount       : iAmount,
+				amount       : fAmount,
 				coinSymbol   : 'MNT',
 				feeCoinSymbol: 'MNT',
-				message      : 'test Tx'
+				message      : ''
 			});
 
 			return oPostTx(oTxParams).then((response) => {
-
 				return response.data.result.hash;
-
 			}).catch((err) => {
 				let sErrorMessage = err.message;
 				if (_Has(err, 'response.data.log')) {
@@ -243,7 +240,7 @@ const App = (function() {
 
 		}
 		else {
-			throw new Error('Wrong wallet or iFundAmount=0');
+			throw new Error('Wrong wallet or fFundAmount=0');
 		}
 
 	};
@@ -254,11 +251,13 @@ const App = (function() {
 	 * @returns {Promise<number>}
 	 */
 	App.prototype.getBalance = async function(sAddress) {
-		let
-				iConvertDelimiter = Math.pow(10, 18);
 
 		return oHttpClient.get(`/api/balance/${sAddress}`).
-				then((response) => Number(response.data.result.count)) / iConvertDelimiter;
+				then((response) => {
+					let fBalance = Number(response.data.result.balance.MNT) / iPipDivider;
+					//oLogger.debug(`sAddress ${sAddress} balance ${fBalance}`);
+					return fBalance;
+				});
 	};
 
 	/**
@@ -277,31 +276,31 @@ const oApp = new App;
 
 oApp.init().then(async () => {
 
+	const
+			fSendFee            = 0.02,
+			fDelegateFee        = 0.1,
+			fTxAmount           = 0.2,
+			iTotalTestDuration  = parseInt(oConfig.get('totalTestDuration')) || 60,// seconds
+			iTotalTxPerWallet   = Math.round(iTotalTestDuration / 5),
+			fTotalFundPerWallet = (fTxAmount + fDelegateFee) * iTotalTxPerWallet,
+
+			iTotalWalletsCount  = parseInt(oConfig.get('totalSimultaneousTx')) || 10;// workers
+
 // prepare Wallets
 	let arWalletInstances = await oApp.loadWallets();
 
+	// Создаем и сейвим кошельки если их нет
 	if (!arWalletInstances.length) {
-		let iTotalWalletsCount = parseInt(oConfig.get('totalWalletsCount')) || 10;
-
 		arWalletInstances = await oApp.createWallets(iTotalWalletsCount);
-
 		await  oApp.saveWallets();
 	}
 
 	if (arWalletInstances.length) {
 
-		// Send
-		(async () => {
-			const
-					fSendFee            = 0.1,
-					iTotalTestDuration  = parseInt(oConfig.get('totalTestDuration')) || 1,//минуты
-					iTotalWalletsCount  = parseInt(oConfig.get('totalWalletsCount')) || 10,
-					iTxAmount           = 0.1,
-					iTotalTxPerWallet   = Math.round(iTotalTestDuration * 60 / 5),
-					fTotalFundPerWallet = (iTxAmount + fSendFee) * iTotalTxPerWallet,
-					fTotalBudget        = fTotalFundPerWallet * iTotalWalletsCount;
+		// Fund
+		await (async () => {
 
-			oLogger.debug('start ' + new Date());
+			oLogger.debug('start Funding ');
 			/* Синхронное пополнение
 						for (const oWallet of arWalletInstances) {
 							let sAddress = oWallet.getAddressString();
@@ -314,87 +313,165 @@ oApp.init().then(async () => {
 						}
 			*/
 
-			// Асинхронное пополнение
-			const arFundedWallets = [];
+			// Асинхронное пополнение Разбиением на 2
+			arWalletInstances = await (async () => {
+				const oCliProgress = new CliProgress.Bar({
+					format: 'Funding wallets [{bar}] {percentage}% | {value}/{total}'
+				}, CliProgress.Presets.shades_classic);
+				let arFundedWallets = [];
+				oCliProgress.start(arWalletInstances.length, 0);
 
-			const SplitFundWallet = async (oWalletFrom, oWalletTo) => {
-				// Получить бюджет кошелька
-				let fBalance = await oApp.getBalance(oWalletFrom.getAddressString());
-				let fFundAmount = (fBalance / 2) - fSendFee;
+				try {
+					while (arWalletInstances.length) {
+						let
+								iNearest2Ratio    = Math.floor(Math.log(arWalletInstances.length) / Math.log(2)),
+								iAlgoChunkWallets = Math.pow(2, iNearest2Ratio),
+								arChunkWallets    = []; // Подмножество Кошельков на пополнение
 
-				// Отправить 0.5 о баланса
-				if (0 < fFundAmount) {
-					return await oApp.sendCoinTo(oWalletFrom, oWalletTo.getAddressString(), fFundAmount);
-				} else {
-					throw new Error(
-							`Not enougth tokens to send. Wal:${oWalletFrom.getAddressString()} balance:${fBalance} needle: ${fBalance +
-							fSendFee}`);
-				}
-			};
-
-			try {
-				// Пополняем первый кошелек общим бюджетом
-				let oWallet = arWalletInstances.pop();
-				await oApp.sendCoinTo(oRootWallet, oWallet.getAddressString(), fTotalBudget);
-				arFundedWallets.push(oWallet);
-
-				while (arWalletInstances.length) {
-					// Асинхронно Пополняем с каждого кошелька с монетами все остальные, делением пополам бюджета кошелька
-					await Promise.all(arFundedWallets.map(async (oWalletFrom) => {
-
-						let oWalletTo = arWalletInstances.pop();
-						if (!oWalletTo) {
-							return Promise.resolve();
+						// Выбираем подмношество кошельков пригодное для алгоритма (кол-во важно)
+						for (let i = 0; i < iAlgoChunkWallets; i++) {
+							arChunkWallets.push(arWalletInstances.pop());
 						}
 
-						return SplitFundWallet(oWalletFrom, oWalletTo).then((sTxHash) => {
-							oLogger.debug(`Success funded wallet: ${oWalletTo.getAddressString()} sTxHash ${sTxHash}`);
-						}).catch((err) => {
-							oLogger.error(`Failed fund wallet: ${oWalletTo.getAddressString()} Err ${err.message}`);
-						});
+						/**
+						 * Функция пополняет кошельки путем деления баланса на 2.
+						 * Кол-во кошельков на входе должно быть равно степени 2.
+						 *
+						 * Возвращает массив пополненых кошельков
+						 *
+						 * @param arQueueWallets
+						 * @returns {Promise<Array>}
+						 * @constructor
+						 */
+						const FundBySplitAlgo = async (arQueueWallets) => {
+							const
+									fQueueBudget       = (fTotalFundPerWallet + fSendFee * iNearest2Ratio) * arQueueWallets.length,
+									arTmpFundedWallets = []; // Пополненые Кошельки из подмножества
 
-					}));
+							/**
+							 * Функция  Делит баланс кошелька на 2-х поровну.
+							 * @param oWalletFrom
+							 * @param oWalletTo
+							 * @returns {Promise<*>}
+							 * @constructor
+							 */
+							const SplitBalance = async (oWalletFrom, oWalletTo) => {
+								// Получить бюджет кошелька
+								let
+										fBalance     = await oApp.getBalance(oWalletFrom.getAddressString()),
+										fFundAmount  = (fBalance - fSendFee) / 2,
+										sAddressTo   = oWalletTo.getAddressString(),
+										sAddressFrom = oWalletFrom.getAddressString();
+
+								// Отправить 0.5 от баланса
+								if (0 < fFundAmount && fTotalFundPerWallet <= fFundAmount) {
+									return await oApp.sendCoinTo(oWalletFrom, sAddressTo, fFundAmount).then((sTxHash) => {
+										return {
+											'code'       : 0,
+											'sTxHash'    : sTxHash,
+											'fFundAmount': fFundAmount
+										};
+									});
+								}
+								else {
+									return {
+										'code': 1,
+										'err' : new Error(
+												`Not enough tokens to send. Wal:${sAddressFrom} balance:${fBalance} needle: ${fFundAmount}`)
+									};
+								}
+
+							};
+
+							// Пополняем первый кошелек общим бюджетом
+							let oWallet = arQueueWallets.shift();
+							await oApp.sendCoinTo(oRootWallet, oWallet.getAddressString(), fQueueBudget).then((sTxHash) => {
+								oLogger.debug(`Success funded from RootWallet: ${oWallet.getAddressString()} sTxHash ${sTxHash}`);
+							});
+							arTmpFundedWallets.push(oWallet);
+
+							// Асинхронно Пополняем с каждого кошелька с монетами все остальные, делением пополам баланса кошелька
+							while (arQueueWallets.length) {
+								await Promise.all(arTmpFundedWallets.map(async (oWalletFrom) => {
+									let oWalletTo = arQueueWallets.pop();
+									if (!oWalletTo) {
+										return Promise.resolve();
+									}
+
+									let sWalletToAddress = oWalletTo.getAddressString();
+									let sWalletFromAddress = oWalletFrom.getAddressString();
+
+									return SplitBalance(oWalletFrom, oWalletTo).then((oTxData) => {
+										if (0 === oTxData.code) {
+											arTmpFundedWallets.push(oWalletTo);
+											oLogger.debug(
+													`Success: ${sWalletFromAddress} => ${sWalletToAddress} ( ${oTxData.fFundAmount}) sTxHash ${oTxData.sTxHash}`);
+										} else {
+											arQueueWallets.push(oWalletTo);
+											oLogger.error(
+													`Failed: ${sWalletFromAddress} => ${sWalletToAddress} ( ${oTxData.fFundAmount}) Err: ${oTxData.err}`);
+										}
+									}).catch((err) => {
+										oLogger.error(
+												`SplitBalance Failed: ${sWalletFromAddress} => ${sWalletToAddress} err ${err.message}`);
+									});
+
+								}));
+							}
+
+							return arTmpFundedWallets;
+						};
+
+						arFundedWallets = arFundedWallets.concat(await FundBySplitAlgo(arChunkWallets));
+
+						oCliProgress.update(arFundedWallets.length);
+					}
+				}
+				catch (err) {
+					oLogger.error(`Got error in Async Funding: ${err.message}`);
 				}
 
-				//Перекидываем кошельки в родной массив
-				while (arFundedWallets.length) {
-					arWalletInstances.push(arFundedWallets.pop());
-				}
+				oCliProgress.stop();
+				return arFundedWallets;
+			})();
 
-			}
-			catch (err) {
-				oLogger.error(err.message);
-			}
+			// Дайджест балансов
+//			await Promise.all(arWalletInstances.map(async (oWallet) => {
+//				let fBalance = await oApp.getBalance(oWallet.getAddressString());
+//				oLogger.info(`Wal: ${oWallet.getAddressString()} Balance: ${fBalance}`);
+//			}));
 
-			oLogger.debug('stop ' + new Date());
+			oLogger.debug('end Funding ');
 
 		})();
 
-		/*
-				// Delegate
-				(async () => {
-					const
-							iTotalTxCount = parseInt(oConfig.get('totalTxCount')) || 10,
-							iTxPerWallet  = Math.round(iTotalTxCount / parseInt(arWalletInstances.length)) || 1;
+		// Delegate
+		await (async () => {
+			const oCliProgress = new CliProgress.Bar({
+				format: 'Sending Tx block [{bar}] {percentage}% | {value}/{total}'
+			}, CliProgress.Presets.shades_classic);
+			let fDelegateAmount = fTxAmount;
 
-					let iDelegateAmount = 50;
+			oLogger.debug('start Delegating ');
 
-					oLogger.debug('start ' + new Date());
-					for (let iTxEpoch = 0; iTxEpoch < iTxPerWallet; iTxEpoch++) {
-						await Promise.all(arWalletInstances.map(async (oWallet) => {
-							let sAddress = oWallet.getAddressString();
-							return oApp.delegateTo(oWallet, iDelegateAmount).then((sTxHash) => {
-								oLogger.debug(`Epoch ${iTxEpoch}/${iTxPerWallet} sAddress: ${sAddress} sTxHash ${sTxHash}`);
-							}).catch((err) => {
-								oLogger.error(`Epoch ${iTxEpoch}/${iTxPerWallet} sAddress: ${sAddress} Err ${err.message}`);
-							});
-						}));
-					}
+			oCliProgress.start(iTotalTxPerWallet, 0);
+			for (let iTxEpoch = 1; iTxEpoch <= iTotalTxPerWallet; iTxEpoch++) {
+				await Promise.all(arWalletInstances.map(async (oWallet) => {
+					let sAddress = oWallet.getAddressString();
 
-					oLogger.debug('stop ' + new Date());
+					return oApp.delegateTo(oWallet, fDelegateAmount).then((sTxHash) => {
+						oLogger.debug(`Epoch ${iTxEpoch}/${iTotalTxPerWallet} sAddress: ${sAddress} sTxHash ${sTxHash}`);
+					}).catch((err) => {
+						oLogger.error(`Epoch ${iTxEpoch}/${iTotalTxPerWallet} sAddress: ${sAddress} Err ${err.message}`);
+					});
+				}));
+				oCliProgress.update(iTxEpoch);
+			}
+			oCliProgress.stop();
+			oLogger.debug('end Delegating ');
 
-				})();
-		*/
+		})();
+
 	}
-})
-;
+});
+
