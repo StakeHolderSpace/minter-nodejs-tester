@@ -1,15 +1,20 @@
 {
 	"verbose": true,
 	"pathToWalletsFile": "/config/wallets.json",
-	"totalSimultaneousTx": 100,
+	"totalSimultaneousTx": 1000,
 	"totalTestDuration": 60,
 	"delegateToNodePubKey": "Mp8f053f3802d33f5e7092bb01ca99ae77606f4faf759c72560d5ee69b8e191a56",
+	"sendToAddress": "Mx825088777c1f3f1c313ef5e247e187c0f696c439",
 	"rootWallet": {
 		"sMnemonic": "cloth century verb raccoon century team minimum consider much swamp next grace"
 	},
 	"minterNodeList": [
 		"https://minter-node-1.testnet.minter.network",
 		"https://minter-node-2.testnet.minter.network",
-		"https://minter-node-3.testnet.minter.network"
+		"https://minter-node-3.testnet.minter.network",
+		"http://136.243.33.21:8841",
+		"http://173.249.25.25:8841",
+		"http://82.204.248.158:8841",
+		"http://35.205.94.100:8841"
 	]
 }

@@ -53,7 +53,6 @@ process.on('uncaughtException', function(err) {
 */
 const App = (function() {
 	const iPipDivider = Math.pow(10, 18);
-	const arWalletInstances = [];
 	const arMinterNodeList = Array.from(oConfig.get('minterNodeList'));
 	const oHttpClient = axios.create({baseURL: arMinterNodeList[Math.floor(Math.random() * arMinterNodeList.length)]});
 
@@ -71,11 +70,13 @@ const App = (function() {
 	 * @param iTotalWalletsCount
 	 * @returns {Promise<Array>}
 	 */
-	App.prototype.createWallets = async function(iTotalWalletsCount) {
+	App.prototype.createWallets = async function(iTotalWalletsCount = 1) {
 		let _iTotalWalletsCount = parseInt(iTotalWalletsCount) || 1;
+		const arWalletInstances = [];
 		const oCliProgress = new CliProgress.Bar({
-			format: 'Creating wallets [{bar}] {percentage}% | {value}/{total}'
-		}, CliProgress.Presets.shades_classic);
+			format : 'Creating wallets [{bar}] {percentage}% | {value}/{total}',
+			barsize: 65
+		}, CliProgress.Presets.shades_grey);
 
 		oCliProgress.start(_iTotalWalletsCount, 0);
 		for (let i = 0; i < _iTotalWalletsCount; i++) {
@@ -89,10 +90,11 @@ const App = (function() {
 
 	/**
 	 *
+	 * @param arWalletInstances
 	 * @param sPathToWalletsFile
 	 * @returns {Promise<undefined>}
 	 */
-	App.prototype.saveWallets = async function(sPathToWalletsFile) {
+	App.prototype.saveWallets = async function(arWalletInstances = [], sPathToWalletsFile = './config/wallets.json') {
 		let sDefaultWalletsPath = oPath.join(__dirname, oConfig.get('pathToWalletsFile') || './config/wallets.json');
 		const _sPathToWalletsFile = sPathToWalletsFile || sDefaultWalletsPath;
 
@@ -113,11 +115,13 @@ const App = (function() {
 	/**
 	 *
 	 * @param sPathToWalletsFile
+	 * @param iCount
 	 * @returns {Promise<Array>}
 	 */
-	App.prototype.loadWallets = async function(sPathToWalletsFile) {
+	App.prototype.loadWallets = async function(iCount = null, sPathToWalletsFile) {
 		let sDefaultWalletsPath = oPath.join(__dirname, oConfig.get('pathToWalletsFile') || './config/wallets.json');
 		const _sPathToWalletsFile = sPathToWalletsFile || sDefaultWalletsPath;
+		const arWalletInstances = [];
 
 		if (oUtils.fileExists(_sPathToWalletsFile)) {
 			// Открываем файл кошельков и выбираем данные о кошельках
@@ -127,20 +131,26 @@ const App = (function() {
 				try {
 					let arWallets = JSON.parse(sJson);
 					const oCliProgress = new CliProgress.Bar({
-						format: 'Loading wallets [{bar}] {percentage}% | {value}/{total}'
-					}, CliProgress.Presets.shades_classic);
+						format : 'Loading wallets [{bar}] {percentage}% | {value}/{total}',
+						barsize: 65
+					}, CliProgress.Presets.shades_grey);
+					iCount = 0 < parseInt(iCount) ? parseInt(iCount) : arWallets.length;
 
-					oCliProgress.start(arWallets.length, 0);
+					oCliProgress.start(iCount, 0);
 
 					arWallets.forEach((oWalletData) => {
+						if (0 >= iCount) return;
+
 						try {
 							arWalletInstances.push(oMinterWallet.walletFromMnemonic(oWalletData.sMnemonic));
 							oCliProgress.update(arWalletInstances.length);
+							iCount--;
 						}
 						catch (err) {
 							oLogger.error(err.message);
 						}
 					});
+
 					oCliProgress.stop();
 				}
 				catch (err) {
@@ -149,14 +159,6 @@ const App = (function() {
 			}
 		}
 
-		return arWalletInstances;
-	};
-
-	/**
-	 *
-	 * @returns {Array}
-	 */
-	App.prototype.getWallets = function() {
 		return arWalletInstances;
 	};
 
@@ -283,19 +285,79 @@ oApp.init().then(async () => {
 			iTotalTestDuration  = parseInt(oConfig.get('totalTestDuration')) || 60,// seconds
 			iTotalTxPerWallet   = Math.round(iTotalTestDuration / 5),
 			fTotalFundPerWallet = (fTxAmount + fDelegateFee) * iTotalTxPerWallet,
-
 			iTotalWalletsCount  = parseInt(oConfig.get('totalSimultaneousTx')) || 10;// workers
 
-// prepare Wallets
-	let arWalletInstances = await oApp.loadWallets();
-
-	// Создаем и сейвим кошельки если их нет
+	// prepare Wallets
+	let arWalletInstances = await oApp.loadWallets(iTotalWalletsCount);
 	if (!arWalletInstances.length) {
 		arWalletInstances = await oApp.createWallets(iTotalWalletsCount);
-		await  oApp.saveWallets();
+		await  oApp.saveWallets(arWalletInstances);
+	} else if (arWalletInstances.length < iTotalWalletsCount) {
+		let iDiff = iTotalWalletsCount - arWalletInstances.length;
+		arWalletInstances = arWalletInstances.concat(await oApp.createWallets(iDiff));
+		await  oApp.saveWallets(arWalletInstances);
 	}
 
 	if (arWalletInstances.length) {
+
+
+//		// Withdrawal all
+//		await (async () => {
+//			const oCliProgress = new CliProgress.Bar({
+//				format: 'Withdrawal Tx block [{bar}] {percentage}% | {fTxPerSec} tx/sec | ETA: {eta}s | {value}/{total}'
+//			}, CliProgress.Presets.shades_grey);
+//			const sSendToAddress = oConfig.get('sendToAddress') || 'Mx825088777c1f3f1c313ef5e247e187c0f696c439';
+//			let
+//					iStartTime = process.hrtime()[0],
+//					iTxEpoch   = 0,
+//					iTxDone    = 0,
+//					iTotalTx   = arWalletInstances.length;
+//
+//			oLogger.debug('start Withdrawal Test ');
+//
+//			oCliProgress.start(iTotalTx, 0, {
+//				fTxPerSec: 0
+//			});
+//
+//			while (arWalletInstances.length) {
+//				let arWalletsChunk = [];
+//
+//				iTxEpoch++;
+//
+//				for (let i = 0; i < iTxEpoch * 4; i++) {
+//					if (0 >= arWalletInstances.length) break;
+//					arWalletsChunk.push(arWalletInstances.pop());
+//				}
+//
+//				await Promise.all(arWalletsChunk.map(async (oWallet) => {
+//					let sAddress          = oWallet.getAddressString(),
+//					    fBalance          = await oApp.getBalance(sAddress),
+//					    fWithdrawalAmount = fBalance - fSendFee;
+//
+//					if (0 < fWithdrawalAmount) {
+//						return oApp.sendCoinTo(oWallet, sSendToAddress, fWithdrawalAmount).then((sTxHash) => {
+//							oLogger.debug(`Withdrawal ${sAddress} => ${sSendToAddress} (${fWithdrawalAmount})`);
+//						}).catch((err) => {
+//							oLogger.error(
+//									`Failed withdrawal: ${sAddress} => ${sSendToAddress} (${fWithdrawalAmount}) Err ${err.message}`);
+//						});
+//					}
+//
+//				}));
+//
+//				iTxDone += arWalletsChunk.length;
+//
+//				let iEpochTime = process.hrtime()[0];
+//
+//				oCliProgress.update(iTxDone, {
+//					fTxPerSec: iTxDone / (iEpochTime - iStartTime)
+//				});
+//			}
+//
+//			oCliProgress.stop();
+//			oLogger.debug('end Withdrawal Test ');
+//
+//		})();
 
 		// Fund
 		await (async () => {
@@ -316,8 +378,9 @@ oApp.init().then(async () => {
 			// Асинхронное пополнение Разбиением на 2
 			arWalletInstances = await (async () => {
 				const oCliProgress = new CliProgress.Bar({
-					format: 'Funding wallets [{bar}] {percentage}% | {value}/{total}'
-				}, CliProgress.Presets.shades_classic);
+					format : 'Funding wallets [{bar}] {percentage}% | ETA: {eta}s | {value}/{total}',
+					barsize: 65
+				}, CliProgress.Presets.shades_grey);
 				let arFundedWallets = [];
 				oCliProgress.start(arWalletInstances.length, 0);
 
@@ -445,32 +508,78 @@ oApp.init().then(async () => {
 
 		})();
 
-		// Delegate
+		process.stdout.write('\x1Bc');
+
+		// Send Test
 		await (async () => {
 			const oCliProgress = new CliProgress.Bar({
-				format: 'Sending Tx block [{bar}] {percentage}% | {value}/{total}'
-			}, CliProgress.Presets.shades_classic);
-			let fDelegateAmount = fTxAmount;
+				format: 'Sending Tx block [{bar}] {percentage}% | {fTxPerSec} tx/sec | ETA: {eta}s | {value}/{total}'
+			}, CliProgress.Presets.shades_grey);
+			const sSendToAddress = oConfig.get('sendToAddress') || 'Mx825088777c1f3f1c313ef5e247e187c0f696c439';
+			let fSendAmount = fTxAmount;
 
-			oLogger.debug('start Delegating ');
+			oLogger.debug('start Sending Test ');
 
-			oCliProgress.start(iTotalTxPerWallet, 0);
+			oCliProgress.start(iTotalTxPerWallet, 0, {
+				fTxPerSec: 0
+			});
+			let iStartTime = process.hrtime()[0];
+
 			for (let iTxEpoch = 1; iTxEpoch <= iTotalTxPerWallet; iTxEpoch++) {
 				await Promise.all(arWalletInstances.map(async (oWallet) => {
 					let sAddress = oWallet.getAddressString();
 
-					return oApp.delegateTo(oWallet, fDelegateAmount).then((sTxHash) => {
-						oLogger.debug(`Epoch ${iTxEpoch}/${iTotalTxPerWallet} sAddress: ${sAddress} sTxHash ${sTxHash}`);
+					return oApp.sendCoinTo(oWallet, sSendToAddress, fSendAmount).then((sTxHash) => {
+						oLogger.debug(`Epoch ${iTxEpoch}/${iTotalTxPerWallet} ${sAddress} => ${sSendToAddress} sTxHash ${sTxHash}`);
 					}).catch((err) => {
 						oLogger.error(`Epoch ${iTxEpoch}/${iTotalTxPerWallet} sAddress: ${sAddress} Err ${err.message}`);
 					});
 				}));
-				oCliProgress.update(iTxEpoch);
+				let iEpochTime = process.hrtime()[0];
+
+				oCliProgress.update(iTxEpoch, {
+					fTxPerSec: (arWalletInstances.length * iTxEpoch) / (iEpochTime - iStartTime)
+				});
 			}
 			oCliProgress.stop();
-			oLogger.debug('end Delegating ');
+			oLogger.debug('end Sending Test ');
 
 		})();
+
+//		// Delegate Test
+//		await (async () => {
+//			const oCliProgress = new CliProgress.Bar({
+//				format: 'Delegating Tx block [{bar}] {percentage}% | {fTxPerSec} tx/sec | ETA: {eta}s | {value}/{total}'
+//			}, CliProgress.Presets.shades_grey);
+//			let fDelegateAmount = fTxAmount;
+//
+//			oLogger.debug('start Delegating Test');
+//
+//			oCliProgress.start(iTotalTxPerWallet, 0,{
+//				fTxPerSec: 0
+//			});
+//			let iStartTime = process.hrtime()[0];
+//
+//			for (let iTxEpoch = 1; iTxEpoch <= iTotalTxPerWallet; iTxEpoch++) {
+//				await Promise.all(arWalletInstances.map(async (oWallet) => {
+//					let sAddress = oWallet.getAddressString();
+//
+//					return oApp.delegateTo(oWallet, fDelegateAmount).then((sTxHash) => {
+//						oLogger.debug(`Epoch ${iTxEpoch}/${iTotalTxPerWallet} sAddress: ${sAddress} sTxHash ${sTxHash}`);
+//					}).catch((err) => {
+//						oLogger.error(`Epoch ${iTxEpoch}/${iTotalTxPerWallet} sAddress: ${sAddress} Err ${err.message}`);
+//					});
+//				}));
+//				let iEpochTime = process.hrtime()[0];
+//
+//				oCliProgress.update(iTxEpoch, {
+//					fTxPerSec: (arWalletInstances.length * iTxEpoch) / (iEpochTime - iStartTime)
+//				});
+//			}
+//			oCliProgress.stop();
+//			oLogger.debug('end Delegating Test');
+//
+//		})();
 
 	}
 });
