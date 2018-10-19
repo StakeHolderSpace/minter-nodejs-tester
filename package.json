@@ -2,11 +2,11 @@
 	"name": "minter-tests",
 	"version": "1.0.0",
 	"description": "",
-	"main": "./src/app.js",
+	"main": "app.js",
 	"scripts": {
 		"test": "echo \"Error: no test specified\" && exit 1",
-		"build": "rimraf dist/ && babel ./ --out-dir dist/ --ignore ./node_modules,./.babelrc,./package.json,./npm-debug.log --copy-files",
-		"start": "npm run build && set NODE_ENV='development' && node dist/app.js"
+		"build-pkg": "pkg -t latest-linux-x64 -o ./app ./app.js",
+		"start": "node ./app.js"
 	},
 	"author": "",
 	"license": "ISC",
@@ -23,7 +23,11 @@
 		"babel-cli": "^6.26.0",
 		"babel-preset-env": "^1.7.0",
 		"babel-preset-es2015": "^6.24.1",
+		"babelify": "^10.0.0",
+		"bluebird": "^3.5.2",
 		"esm": "^3.0.84",
+		"esmify": "^1.2.0",
+		"pkg": "^4.3.4",
 		"rimraf": "^2.6.2"
 	}
 }
