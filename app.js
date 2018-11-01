@@ -430,7 +430,7 @@ const oApp = new App;
 oApp.init().then(async () => {
 
 	const
-			fSendFee           = 0.02,
+			fSendFee           = 0.01,
 			fDelegateFee       = 0.2,
 			fTxAmount          = 0.1,
 			iTotalTestDuration = parseInt(oConfig.get('totalTestDuration')) || 60,// seconds
@@ -498,9 +498,9 @@ oApp.init().then(async () => {
 							});
 
 							await Promise.all(arDfdSendChunk.map(fnReflect)).
-									then(results =>{
+									then(results => {
 										let arResolved = results.filter(result => result.resolved);
-										console.log(arResolved,` Ok: (${arResolved.length} of ${results.length})`)
+										console.log(arResolved, ` Ok: (${arResolved.length} of ${results.length})`);
 									}).
 									catch(() => console.log('Withdrawal batch failed'));
 
@@ -571,8 +571,11 @@ oApp.init().then(async () => {
 						// Заодно подсчитывам полный бюджет накладных расходов на переводы
 						fTotalSendFee = iTreeHeight * fSendFee;
 						arTreeNodes.push({
-							oWallet     : arQueueWallets.shift(),
-							fTxFeeBudget: fTotalSendFee
+							oWallet         : arQueueWallets.shift(),
+							fTxFeeBudget    : fTotalSendFee,
+							fBalance        : 0,
+							iTxCount        : 0,
+							iLastSplitHeight: 0
 						});
 
 						for (let i = 1; i <= iTreeHeight; i++) {
@@ -581,8 +584,11 @@ oApp.init().then(async () => {
 
 							for (let n = 0; n < iNodeWalletCnt; n++) {
 								arTreeNodes.push({
-									oWallet     : arQueueWallets.shift(),
-									fTxFeeBudget: fNodeTxFeeBudget
+									oWallet         : arQueueWallets.shift(),
+									fTxFeeBudget    : fNodeTxFeeBudget,
+									fBalance        : 0,
+									iTxCount        : 0,
+									iLastSplitHeight: 0
 								});
 							}
 
@@ -596,52 +602,62 @@ oApp.init().then(async () => {
 						let oNodeTo = arTreeNodes.shift();
 						let sWalletToAddress = oNodeTo.oWallet.getAddressString();
 						await oApp.sendCoinTo(oRootWallet, sWalletToAddress, fQueueBudget).then((sTxHash) => {
-							oLogger.debug(`Success funded from RootWallet: ${sWalletToAddress} (${fQueueBudget}) sTxHash ${sTxHash}`);
+							oNodeTo.fBalance = fQueueBudget;
+							arFundedNodes.push(oNodeTo);
+							oLogger.debug(`Success Root fund ${sWalletToAddress} ${fQueueBudget} (${sTxHash})`);
 						});
-						arFundedNodes.push(oNodeTo);
+						oNodeTo = null;
 
-						// Асинхронно Пополняем с каждого кошелька все остальные, делением 2
+						// Асинхронно Пополняем все остальные, делением 2
+						let iHeight = 0;
 						while (arTreeNodes.length) {
-							try {
-								let arDfdSendChunk = arFundedNodes.map(async (oNodeFrom) => {
-									let oNodeTo = arTreeNodes.shift();
-									if (!oNodeTo) {
-										return Promise.resolve();
-									}
+							//
+							let arDfdSendChunk = arFundedNodes.map(async (oNodeFrom) => {
+								let oNodeTo = arTreeNodes.shift();
+								if (!oNodeTo) {
+									return Promise.resolve();
+								}
 
-									let sWalletToAddress = oNodeTo.oWallet.getAddressString();
-									let sWalletFromAddress = oNodeFrom.oWallet.getAddressString();
-									let fNodeFromBalance = await oApp.getBalance(sWalletFromAddress);
-									let fFundAmount = (fNodeFromBalance - oNodeFrom.fTxFeeBudget) / 2;
+								let
+										fNodeFromBalance = oNodeFrom.fBalance, /*await oApp.getBalance(sWalletFromAddress),*/
+										sWalletToAddress = oNodeTo.oWallet.getAddressString(),
+										fFundAmount      = (fNodeFromBalance - oNodeFrom.fTxFeeBudget) / 2;
 
-									/*
-																	console.log({
-																		'sWalletToAddress'  : sWalletToAddress,
-																		'sWalletFromAddress': sWalletFromAddress,
-																		'fNodeFromBalance'  : fNodeFromBalance,
-																		'fTxFeeBudget'      : oNodeFrom.fTxFeeBudget,
-																		'fFundAmount'       : fFundAmount,
-																		'fFundPerWallet'    : fFundPerWallet
-																	});
-									*/
-									return await oApp.sendCoinTo(oNodeFrom.oWallet, sWalletToAddress, fFundAmount).then((sTxHash) => {
-										arFundedNodes.push(oNodeTo);
+								/*
+																console.log({
+																	'sWalletToAddress'  : sWalletToAddress,
+																	'sWalletFromAddress': sWalletFromAddress,
+																	'fNodeFromBalance'  : fNodeFromBalance,
+																	'fTxFeeBudget'      : oNodeFrom.fTxFeeBudget,
+																	'fFundAmount'       : fFundAmount,
+																	'fFundPerWallet'    : fFundPerWallet
+																});
+								*/
+								return await oApp.sendCoinTo(oNodeFrom.oWallet, sWalletToAddress, fFundAmount).then((sTxHash) => {
+									oNodeFrom.fBalance = fNodeFromBalance - fFundAmount;
+									oNodeFrom.fTxFeeBudget -= fSendFee;
+									oNodeFrom.iTxCount++;
+									oNodeFrom.iLastSplitHeight = iHeight;
 
-										oLogger.debug(
-												`Success: ${sWalletFromAddress} => ${sWalletToAddress} ( ${fFundAmount} ) sTxHash ${sTxHash}`);
-									}).catch(async (err) => {
-										await oApp.sendCoinTo(oNodeFrom.oWallet, sWalletToAddress, fFundAmount);
-										oLogger.error(
-												`Async Funding Failed: ${sWalletFromAddress} => ${sWalletToAddress} Balance ${fNodeFromBalance} err ${err.message}`);
-									});
+									oNodeTo.fBalance = fFundAmount;
+
+									arFundedNodes.push(oNodeTo);
+
+								}).catch(err => {
 
 								});
 
-								await Promise.all(arDfdSendChunk);
-							}
-							catch (err) {
-								oLogger.error(`Async Funding Block Failed: ${err.message}`);
-							}
+							});
+
+							await Promise.all(arDfdSendChunk.map(fnReflect)).
+									then(results => {
+										let arResolved = results.filter(result => result.resolved);
+
+										console.log(arFundedNodes, ` Ok: (${arResolved.length} of ${results.length})`);
+									}).
+									catch(() => console.log('Funding batch failed'));
+
+							iHeight++;
 						}
 
 						return arFundedNodes;
@@ -663,7 +679,7 @@ oApp.init().then(async () => {
 									arChunkWallets = []; // Подмножество Кошельков на пополнение
 
 							// Выбираем подмношество кошельков пригодное для алгоритма (кол-во важно)
-							for (let i = 0; i < iTreeNodesCnt; i++) {
+							for (let i = 0; i < iTreeNodesCnt - 1; i++) {
 								arChunkWallets.push(arWalletInstances.pop());
 							}
 
@@ -740,45 +756,84 @@ oApp.init().then(async () => {
 		//
 		else if (args.d) {
 			try {
-				// Delegate Test
 				await (async () => {
-					const oCliProgress = new CliProgress.Bar({
-						format: 'Delegating  [{bar}] {percentage}% | {fTxPerSec} tx/sec | ETA: {eta}s | {value}/{total}'
-					}, CliProgress.Presets.shades_grey);
-					let fDelegateAmount = fTxAmount;
+//					const oCliProgress = new CliProgress.Bar({
+//						format: 'Delegating  [{bar}] {percentage}% | {fTxPerSec} tx/sec | ETA: {eta}s | {value}/{total}'
+//					}, CliProgress.Presets.shades_grey);
+					let
+							iStartTime            = process.hrtime()[0],
+							iTxEpoch              = 0,
+							iTxEpochMultiplicator = 5,
+							iTxDone               = 0,
+							iTotalTx              = arWalletInstances.length;
 
-					oLogger.debug('start Delegating Test');
+					oLogger.debug('Start Delegating Test ');
 
-					oCliProgress.start(iTotalTxPerWallet, 0, {
-						fTxPerSec: 0
-					});
-					let iStartTime = process.hrtime()[0];
+//					oCliProgress.start(iTotalTx, 0, {
+//						fTxPerSec: 0
+//					});
 
-					for (let iTxEpoch = 1; iTxEpoch <= iTotalTxPerWallet; iTxEpoch++) {
-						await Promise.all(arWalletInstances.map(async (oWallet) => {
-							let sAddress = oWallet.getAddressString();
+					while (arWalletInstances.length) {
+						let arWalletsChunk = [];
 
-							return oApp.delegateTo(oWallet, fDelegateAmount).then((sTxHash) => {
-								oLogger.debug(`Epoch ${iTxEpoch}/${iTotalTxPerWallet} sAddress: ${sAddress} sTxHash ${sTxHash}`);
-							}).catch((err) => {
-								oLogger.error(`Epoch ${iTxEpoch}/${iTotalTxPerWallet} sAddress: ${sAddress} Err ${err.message}`);
+						iTxEpoch++;
+
+						for (let i = 0; i < iTxEpoch * iTxEpochMultiplicator; i++) {
+							if (0 >= arWalletInstances.length) break;
+							arWalletsChunk.push(arWalletInstances.pop());
+						}
+
+						try {
+							oLogger.debug(`Start Delegating batch  #${iTxEpoch} | ${arWalletsChunk.length} Tx `);
+
+							let arDfdSendChunk = arWalletsChunk.map(async (oWallet) => {
+								let sAddress        = oWallet.getAddressString(),
+								    fBalance        = await oApp.getBalance(sAddress),
+								    fDelegateAmount = fTxAmount,
+								    fBalanceRest    = fBalance.toFixed(5) - fDelegateFee;
+
+								if (0 < fBalanceRest) {
+									return await oApp.delegateTo(oWallet, fDelegateAmount);
+								}
+
+								return new Promise.reject(new Error(`Not enough tokens!`));
 							});
-						}));
+
+							await Promise.all(arDfdSendChunk.map(fnReflect)).
+									then(results => {
+										let arResolved = results.filter(result => result.resolved);
+
+										console.log(arResolved, ` Ok: (${arResolved.length} of ${results.length})`);
+									}).
+									catch(() => console.log('Delegating batch failed'));
+
+							oLogger.debug(`End Delegating batch  #${iTxEpoch}`);
+						}
+						catch (err) {
+							oLogger.error(
+									`Failed withdrawal batch: Err ${err.message}`);
+						}
+
+						iTxDone += arWalletsChunk.length;
+
 						let iEpochTime = process.hrtime()[0];
 
-						oCliProgress.update(iTxEpoch, {
-							fTxPerSec: (arWalletInstances.length * iTxEpoch) / (iEpochTime - iStartTime)
-						});
+//						oCliProgress.update(iTxDone, {
+//							fTxPerSec: iTxDone / (iEpochTime - iStartTime)
+//						});
+
 					}
-					oCliProgress.stop();
-					oLogger.debug('end Delegating Test');
+
+//					oCliProgress.stop();
+					oLogger.debug('End Delegating Test ');
 
 				})();
 			}
 			catch (err) {
-				oLogger.error(`Failed Delegate Test: ${err.message}`);
+				oLogger.error(`Failed Delegating: Err ${err.message}`);
 				process.exit(1);
 			}
+
 		}
 	}
 });

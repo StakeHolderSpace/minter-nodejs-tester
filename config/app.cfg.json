@@ -1,10 +1,10 @@
 {
 	"verbose": true,
 	"pathToWalletsFile": "./config/wallets.json",
-	"pathToAddressBook": "./config/addrbook.json",
-	"totalSimultaneousTx": 400,
-	"totalTestDuration": 600,
-	"delegateToNodePubKey": "Mp8f053f3802d33f5e7092bb01ca99ae77606f4faf759c72560d5ee69b8e191a56",
+	"pathToAddressBook": "./config/addrbook.json_",
+	"totalSimultaneousTx": 100,
+	"totalTestDuration": 5,
+	"delegateToNodePubKey": "Mp5c87d35a7adb055f54140ba03c0eed418ddc7c52ff7a63fc37a0e85611388610",
 	"sendToAddress": "Mx825088777c1f3f1c313ef5e247e187c0f696c439",
 	"rootWallet": {
 		"sMnemonic": "cloth century verb raccoon century team minimum consider much swamp next grace"
@@ -13,6 +13,7 @@
 		"https://minter-node-1.testnet.minter.network",
 		"https://minter-node-2.testnet.minter.network",
 		"https://minter-node-3.testnet.minter.network",
-		"http://35.240.0.88:8841"
+		"http://35.240.0.88:8841",
+		"http://minter-rpc.infocoin.pro"
 	]
 }
