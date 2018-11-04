@@ -75,10 +75,6 @@ oMinterHelper.init().then(async () => {
 	}
 
 	if (arWalletInstances.length) {
-		const WithdrawalTest = require(sTestsRoot + 'withdrwal');
-		const FundTest = require(sTestsRoot + 'fund_check');
-		const SendTest = require(sTestsRoot + 'send');
-		const DelegateTest = require(sTestsRoot + 'delegate');
 
 		let oAnswer = await oMenu.askTestType();
 
@@ -90,6 +86,7 @@ oMinterHelper.init().then(async () => {
 				*/
 			case 'withdrawal':
 				try {
+					const WithdrawalTest = require(sTestsRoot + 'withdrwal');
 					await WithdrawalTest.run(oMinterHelper, {
 						arWallets: arWalletInstances,
 						fSendFee : fSendFee
@@ -107,6 +104,7 @@ oMinterHelper.init().then(async () => {
 				*/
 			case 'fund':
 				try {
+					const FundTest = require(sTestsRoot + 'fund_check');
 					await FundTest.run(oMinterHelper, {
 								arWallets     : arWalletInstances,
 								fSendFee      : fSendFee,
@@ -125,6 +123,7 @@ oMinterHelper.init().then(async () => {
 				*/
 			case 'send':
 				try {
+					const SendTest = require(sTestsRoot + 'send');
 					await SendTest.run(oMinterHelper, {
 						arWallets        : arWalletInstances,
 						fSendFee         : fSendFee,
@@ -143,6 +142,7 @@ oMinterHelper.init().then(async () => {
 				*/
 			case 'delegate':
 				try {
+					const DelegateTest = require(sTestsRoot + 'delegate');
 					await DelegateTest.run(oMinterHelper, {
 						arWallets      : arWalletInstances,
 						fDelegateFee   : fDelegateFee,
