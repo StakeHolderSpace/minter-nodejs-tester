@@ -1,4 +1,5 @@
 ### MinterNetwork  Test Tool
+![ScreenShot](http://take.ms/EcBMo =400x)
 
 * Install all dependencies
  ```bash
