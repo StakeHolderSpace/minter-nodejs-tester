@@ -16,8 +16,7 @@ IF %CD:~-1%==\ Set CD=%CD:~0,-1%
 set NODE_ENV=development
 
 Set TOOLS_DIR=%CD%\tools
-Set APP_DIR=%CD%\app
-Set ZBX_DIR=%TOOLS_DIR%\zabbix_agent
+Set APP_DIR=%CD%
 
 Set NODEJS_EXIST=N
 where node.exe >nul 2>&1 && Set NODEJS_EXIST=Y || Set NODEJS_EXIST=N
@@ -40,7 +39,7 @@ if %NODEJS_EXIST%==N (
 
 :: #################################################################################################
 echo -===== Run Application ======-
-if exist "%CD%\src\app.js" start "" "npm" "run start"
+if exist "%CD%\app.js" start "" "npm" "run start"
 
 popd
 endlocal

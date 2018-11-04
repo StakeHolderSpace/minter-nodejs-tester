@@ -25,16 +25,18 @@ const
 			}
 		}),
 		oPath       = require('path'),
+		Promise     = require('bluebird'),
+		CliProgress = require('cli-progress'),
+
 		sLibRoot    = oPath.join(__dirname, './lib/'),
 		sUtilsRoot  = oPath.join(sLibRoot, '/utils/'),
 		sTestsRoot  = oPath.join(sLibRoot, '/tests/'),
-		Promise     = require('bluebird'),
-		CliProgress = require('cli-progress'),
 		oConfig     = require(sUtilsRoot + 'nconf'),
 		oUtils      = require(sUtilsRoot + 'utils'),
-		oLogger     = require(sUtilsRoot + 'winston')(module);
+		oLogger     = require(sUtilsRoot + 'winston')(module),
+		oMenu       = require(sUtilsRoot + 'menu');
 
-process.env.NODE_ENV = (oConfig.get('verbose')) ? 'development' : '';
+process.env.NODE_ENV = (oConfig.get('debug')) ? 'development' : '';
 process.title = 'StakeHolder Overload Tests';
 process.on('uncaughtException', function(err) {
 	oLogger.error('Caught exception: ' + err);
@@ -43,6 +45,10 @@ process.on('uncaughtException', function(err) {
 });
 
 const oMinterHelper = require(sUtilsRoot + '/minter-helper');
+
+oUtils.clear();
+
+oUtils.showAppCliTitle();
 
 // ==============================================================================
 
@@ -69,236 +75,88 @@ oMinterHelper.init().then(async () => {
 	}
 
 	if (arWalletInstances.length) {
+		const WithdrawalTest = require(sTestsRoot + 'withdrwal');
+		const FundTest = require(sTestsRoot + 'fund_check');
+		const SendTest = require(sTestsRoot + 'send');
+		const DelegateTest = require(sTestsRoot + 'delegate');
 
-		// Withdrawal
-		if (args.w) {
-			// Withdrawal all
-			try {
-				await (async () => {
-//					const oCliProgress = new CliProgress.Bar({
-//						format: 'Withdrawal [{bar}] {percentage}% | {fTxPerSec} tx/sec | ETA: {eta}s | {value}/{total}'
-//					}, CliProgress.Presets.shades_grey);
-					const sSendToAddress = oConfig.get('sendToAddress') || 'Mx825088777c1f3f1c313ef5e247e187c0f696c439';
-					let
-							iStartTime = process.hrtime()[0],
-							iTxEpoch   = 0,
-							iTxDone    = 0,
-							iTotalTx   = arWalletInstances.length;
+		let oAnswer = await oMenu.askTestType();
 
-					oLogger.debug('Start Withdrawal Test ');
-
-//					oCliProgress.start(iTotalTx, 0, {
-//						fTxPerSec: 0
-//					});
-
-					while (arWalletInstances.length) {
-						let arWalletsChunk = [];
-
-						iTxEpoch++;
-
-						for (let i = 0; i < iTxEpoch * 5; i++) {
-							if (0 >= arWalletInstances.length) break;
-							arWalletsChunk.push(arWalletInstances.pop());
-						}
-
-						try {
-							oLogger.debug(`Start Withdrawal batch  #${iTxEpoch} | ${arWalletsChunk.length} Tx `);
-
-							let arDfdSendChunk = arWalletsChunk.map(async (oWallet) => {
-								let sAddress          = oWallet.getAddressString(),
-								    fBalance          = await oMinterHelper.getBalance(sAddress),
-								    fWithdrawalAmount = fBalance.toFixed(5) - fSendFee;
-
-								if (fSendFee < fWithdrawalAmount) {
-									return await oMinterHelper.sendCoinTo(oWallet, sSendToAddress, fWithdrawalAmount);
-								}
-
-								return new Promise.resolve(`Not need Withdrawal, wallet empty!`);
-							});
-
-							await Promise.all(arDfdSendChunk.map(oUtils.fnReflect)).
-									then(results => {
-										//let arResolved = results.filter(result => result.resolved);
-										let arRejected = results.filter(result => !result.resolved);
-										console.log(arRejected, ` Ok: (${results.length - arRejected.length} of ${results.length})`);
-									}).
-									catch(() => console.log('Withdrawal batch failed'));
-
-							oLogger.debug(`End Withdrawal batch  #${iTxEpoch}`);
-						}
-						catch (err) {
-							oLogger.error(
-									`Failed withdrawal batch: Err ${err.message}`);
-						}
-
-						iTxDone += arWalletsChunk.length;
-
-						let iEpochTime = process.hrtime()[0];
-
-//						oCliProgress.update(iTxDone, {
-//							fTxPerSec: iTxDone / (iEpochTime - iStartTime)
-//						});
-
-					}
-
-//					oCliProgress.stop();
-					oLogger.debug('End Withdrawal Test ');
-
-				})();
-			}
-			catch (err) {
-				oLogger.error(`Failed withdrawal: Err ${err.message}`);
-				process.exit(1);
-			}
-		}
-
-		// Fund
-		else if (args.f) {
-			const FundTest = require(sTestsRoot + 'fund_check');
-			try {
-				await FundTest.run(oMinterHelper, {
-							arWallets     : arWalletInstances,
-							fSendFee      : fSendFee,
-							fFundPerWallet: (fTxAmount + fDelegateFee) * iTotalTxPerWallet
-						}
-				);
-			}
-			catch (err) {
-				oLogger.error(`Failed Async Funding: ${err.message}`);
-				process.exit(1);
-			}
-		}
-
-		// Send
-		else if (args.s) {
-			// Send Test
-			try {
-				await (async () => {
-					const oCliProgress = new CliProgress.Bar({
-						format: 'Sending Tx block [{bar}] {percentage}% | {fTxPerSec} tx/sec | ETA: {eta}s | {value}/{total}'
-					}, CliProgress.Presets.shades_grey);
-					const sSendToAddress = oConfig.get('sendToAddress') || 'Mx825088777c1f3f1c313ef5e247e187c0f696c439';
-					let fSendAmount = fTxAmount;
-
-					oLogger.debug('start Sending Test ');
-
-					oCliProgress.start(iTotalTxPerWallet, 0, {
-						fTxPerSec: 0
+		switch (oAnswer.sTestType) {
+				/*
+				* Тест Опустошения кошельков.
+				* Выводит деньги со всех кошельков на главный кошелек
+				* Отправляет запросы пачками по наростающей 5,10,15,20...
+				*/
+			case 'withdrawal':
+				try {
+					await WithdrawalTest.run(oMinterHelper, {
+						arWallets: arWalletInstances,
+						fSendFee : fSendFee
 					});
-					let iStartTime = process.hrtime()[0];
-
-					for (let iTxEpoch = 1; iTxEpoch <= iTotalTxPerWallet; iTxEpoch++) {
-
-						await Promise.all(arWalletInstances.map(async (oWallet) => {
-							let sAddress = oWallet.getAddressString();
-
-							return await oMinterHelper.sendCoinTo(oWallet, sSendToAddress, fSendAmount).
-									then((sTxHash) => {
-										oLogger.debug(
-												`Epoch ${iTxEpoch}/${iTotalTxPerWallet} ${sAddress} => ${sSendToAddress} sTxHash ${sTxHash}`);
-										return sTxHash;
-									}).
-									catch((err) => {
-										oLogger.error(`Epoch ${iTxEpoch}/${iTotalTxPerWallet} sAddress: ${sAddress} Err ${err.message}`);
-										throw err;
-									});
-						}));
-
-						let iEpochTime = process.hrtime()[0];
-
-						oCliProgress.update(iTxEpoch, {
-							fTxPerSec: (arWalletInstances.length * iTxEpoch) / (iEpochTime - iStartTime)
-						});
-					}
-					oCliProgress.stop();
-					oLogger.debug('end Sending Test ');
-				})();
-			}
-			catch (err) {
-				oLogger.error(`Failed Send Test: ${err.message}`);
-				process.exit(1);
-			}
-		}
-
-		// Delegate
-		else if (args.d) {
-			try {
-				await (async () => {
-//					const oCliProgress = new CliProgress.Bar({
-//						format: 'Delegating  [{bar}] {percentage}% | {fTxPerSec} tx/sec | ETA: {eta}s | {value}/{total}'
-//					}, CliProgress.Presets.shades_grey);
-					let
-							iStartTime = process.hrtime()[0],
-							iTxEpoch   = 0,
-							iTxDone    = 0,
-							iTotalTx   = arWalletInstances.length;
-
-					oLogger.debug('Start Delegating Test ');
-
-//					oCliProgress.start(iTotalTx, 0, {
-//						fTxPerSec: 0
-//					});
-
-					while (arWalletInstances.length) {
-						let arWalletsChunk = [];
-
-						iTxEpoch++;
-
-						for (let i = 0; i < iTxEpoch * 5; i++) {
-							if (0 >= arWalletInstances.length) break;
-							arWalletsChunk.push(arWalletInstances.pop());
-						}
-
-						try {
-							oLogger.debug(`Start Delegating batch  #${iTxEpoch} | ${arWalletsChunk.length} Tx `);
-
-							let arDfdSendChunk = arWalletsChunk.map(async (oWallet) => {
-								let sAddress        = oWallet.getAddressString(),
-								    fBalance        = await oMinterHelper.getBalance(sAddress),
-								    fDelegateAmount = fTxAmount,
-								    fBalanceRest    = fBalance.toFixed(5) - fDelegateFee;
-
-								if (0 < fBalanceRest) {
-									return await oMinterHelper.delegateTo(oWallet, fDelegateAmount);
-								}
-
-								return new Promise.reject(new Error(`Not enough tokens!`));
-							});
-
-							await Promise.all(arDfdSendChunk.map(oUtils.fnReflect)).
-									then(results => {
-										let arResolved = results.filter(result => result.resolved);
-
-										console.log(arResolved, ` Ok: (${arResolved.length} of ${results.length})`);
-									}).
-									catch(() => console.log('Delegating batch failed'));
-
-							oLogger.debug(`End Delegating batch  #${iTxEpoch}`);
-						}
-						catch (err) {
-							oLogger.error(
-									`Failed withdrawal batch: Err ${err.message}`);
-						}
-
-						iTxDone += arWalletsChunk.length;
-
-						let iEpochTime = process.hrtime()[0];
-
-//						oCliProgress.update(iTxDone, {
-//							fTxPerSec: iTxDone / (iEpochTime - iStartTime)
-//						});
-
-					}
-
-//					oCliProgress.stop();
-					oLogger.debug('End Delegating Test ');
-
-				})();
-			}
-			catch (err) {
-				oLogger.error(`Failed Delegating: Err ${err.message}`);
-				process.exit(1);
-			}
+				}
+				catch (err) {
+					oLogger.error(`Failed withdrawal: Err ${err.message}`);
+					process.exit(1);
+				}
+				break;
+				/*
+				* Тест Пополнения кошельков
+				* Генерит Чеки с главного кошелька, на сумму достаточную для теста Send, и обналичивает их.
+				* Обналичивание производится по схеме : за раз параллельно 1/10 от общего кол-ва кошельков
+				*/
+			case 'fund':
+				try {
+					await FundTest.run(oMinterHelper, {
+								arWallets     : arWalletInstances,
+								fSendFee      : fSendFee,
+								fFundPerWallet: (fTxAmount + fDelegateFee) * iTotalTxPerWallet
+							}
+					);
+				}
+				catch (err) {
+					oLogger.error(`Failed Async Funding: ${err.message}`);
+					process.exit(1);
+				}
+				break;
+				/*
+				* Тест Отправки монет
+				* Отправляет переводы со ВСЕХ кошельков паралельно. Делает iTotalTxPerWallet итераций.
+				*/
+			case 'send':
+				try {
+					await SendTest.run(oMinterHelper, {
+						arWallets        : arWalletInstances,
+						fSendFee         : fSendFee,
+						fSendAmount      : fTxAmount,
+						iTotalTxPerWallet: iTotalTxPerWallet
+					});
+				}
+				catch (err) {
+					oLogger.error(`Failed Send Test: ${err.message}`);
+					process.exit(1);
+				}
+				break;
+				/*
+				* Тест Делегирования
+				* Отправляет запросы пачками по наростающей 5,10,15,20...
+				*/
+			case 'delegate':
+				try {
+					await DelegateTest.run(oMinterHelper, {
+						arWallets      : arWalletInstances,
+						fDelegateFee   : fDelegateFee,
+						fDelegateAmount: fTxAmount
+					});
+				}
+				catch (err) {
+					oLogger.error(`Failed Delegating Test: ${err.message}`);
+					process.exit(1);
+				}
+				break;
+				//
+			default:
+				break;
 		}
 	}
 });
