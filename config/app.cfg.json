@@ -7,7 +7,7 @@
 	"delegateToNodePubKey": "Mpb54df5b1abc46ecdb08935d6fc2f4526eba27caf1b6f2f87b3477ef3119bc0fd",
 	"sendToAddress": "Mx825088777c1f3f1c313ef5e247e187c0f696c439",
 	"rootWallet": {
-		"sMnemonic": "cloth century verb raccoon century team minimum consider much swamp next grace"
+		"sMnemonic": ""
 	},
 	"fallbackNodeList": [
 		"https://minter-node-1.testnet.minter.network",
