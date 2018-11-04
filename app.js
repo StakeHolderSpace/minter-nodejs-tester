@@ -86,7 +86,7 @@ oMinterHelper.init().then(async () => {
 				*/
 			case 'withdrawal':
 				try {
-					const WithdrawalTest = require(sTestsRoot + 'withdrwal');
+					const WithdrawalTest = require(sTestsRoot + 'withdrawal');
 					await WithdrawalTest.run(oMinterHelper, {
 						arWallets: arWalletInstances,
 						fSendFee : fSendFee
