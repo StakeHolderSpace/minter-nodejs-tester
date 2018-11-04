@@ -11,3 +11,5 @@ npm i
 ```bash
 npm start
 ```
+
+In case You want to see verbose process, set NODE_ENV to 'development'

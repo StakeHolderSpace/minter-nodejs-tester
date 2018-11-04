@@ -25,9 +25,6 @@ const
 			}
 		}),
 		oPath       = require('path'),
-		Promise     = require('bluebird'),
-		CliProgress = require('cli-progress'),
-
 		sLibRoot    = oPath.join(__dirname, './lib/'),
 		sUtilsRoot  = oPath.join(sLibRoot, '/utils/'),
 		sTestsRoot  = oPath.join(sLibRoot, '/tests/'),
@@ -37,6 +34,7 @@ const
 		oMenu       = require(sUtilsRoot + 'menu');
 
 process.env.NODE_ENV = (oConfig.get('debug')) ? 'development' : '';
+
 process.title = 'StakeHolder Overload Tests';
 process.on('uncaughtException', function(err) {
 	oLogger.error('Caught exception: ' + err);
