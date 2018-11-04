@@ -13,4 +13,6 @@ npm i
 npm start
 ```
 
+Do first test **Fund**!
+
 In case You want to see verbose process, set NODE_ENV to 'development'
