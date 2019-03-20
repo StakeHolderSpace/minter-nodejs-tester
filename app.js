@@ -55,10 +55,11 @@ oUtils.showAppCliTitle();
 oMinterHelper.init()
     .then(async (arMinterNodeList) => {
 
-      const iGasPriceRatio = 5;
+      const iGasPriceRatio = parseInt(oConfig.get('iGasPriceRatio')) || 60;
+
       const
           fSendFee           = 0.1 * iGasPriceRatio,
-          fDelegateFee       = 0.2,
+          fDelegateFee       = 0.2 * iGasPriceRatio,
           fTxAmount          = 0.1,
           iTotalTestDuration = parseInt(oConfig.get('totalTestDuration')) || 60,// seconds
           iTotalTxPerWallet  = Math.round(iTotalTestDuration / 5),
