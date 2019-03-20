@@ -53,10 +53,11 @@ oUtils.showAppCliTitle();
 // ==============================================================================
 
 oMinterHelper.init()
-    .then(async () => {
+    .then(async (arMinterNodeList) => {
 
+      const iGasPriceRatio = 5;
       const
-          fSendFee           = 0.1,
+          fSendFee           = 0.1 * iGasPriceRatio,
           fDelegateFee       = 0.2,
           fTxAmount          = 0.1,
           iTotalTestDuration = parseInt(oConfig.get('totalTestDuration')) || 60,// seconds
@@ -167,9 +168,20 @@ oMinterHelper.init()
               break;
           }
 
+          oLogger.info(`\n =========== Node Calls Stat ==========================`);
+          let arStatCall = arMinterNodeList.sort(function(a, b) {
+            return b.calls - a.calls;
+          });
 
+          arStatCall.forEach(function(oNodeClient) {
+            oLogger.info(`${oNodeClient.sNodeUrl} - ${oNodeClient.calls} times`);
+          });
+          oLogger.info(`================================================= \n`);
         }
       }
 
+    })
+    .catch((err) => {
+      oLogger.error(err.message);
     });
 
