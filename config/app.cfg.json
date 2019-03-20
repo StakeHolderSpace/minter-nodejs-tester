@@ -1,5 +1,5 @@
 {
-	"debug": false,
+	"debug": true,
 	"pathToWalletsFile": "./config/wallets.json",
 	"pathToAddressBook": "./config/addrbook.json",
 	"totalWallets": 3000,
