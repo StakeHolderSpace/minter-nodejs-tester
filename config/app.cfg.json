@@ -3,7 +3,7 @@
 	"pathToWalletsFile": "./config/wallets.json",
 	"pathToAddressBook": "./config/addrbook.json",
 	"totalWallets": 3000,
-	"totalTestDuration": 60,
+	"totalTestDuration": 600,
 	"delegateToNodePubKey": "Mp8f053f3802d33f5e7092bb01ca99ae77606f4faf759c72560d5ee69b8e191a56",
 	"sendToAddress": "Mx8d3c1212512bbb7e754e49e8d5880fc753a92762",
 	"rootWallet": {
