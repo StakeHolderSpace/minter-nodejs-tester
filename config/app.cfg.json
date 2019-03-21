@@ -14,6 +14,20 @@
 		"https://minter-node-1.testnet.minter.network",
 		"https://minter-node-2.testnet.minter.network",
 		"https://minter-node-3.testnet.minter.network",
-		"https://minter-node-4.testnet.minter.network"
+		"https://minter-node-4.testnet.minter.network",
+		"http://136.243.33.21:8841",
+		"http://35.228.11.121:8841",
+		"http://35.237.137.39:8841",
+		"http://51.15.36.89:8841",
+		"http://136.243.33.21:8841",
+		"http://212.83.150.18:8841",
+		"http://91.221.108.51:8841",
+		"http://95.216.18.242:8841",
+		"http://94.237.9.117:8841",
+		"http://194.99.20.107:8841",
+		"http://46.101.79.38:8841",
+		"http://35.228.92.80:8841",
+		"http://84.201.143.192:8841",
+		"http://35.228.149.243:8841"
 	]
 }
