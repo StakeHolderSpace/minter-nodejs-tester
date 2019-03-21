@@ -60,7 +60,7 @@ oMinterHelper.init()
       const
           fSendFee           = 0.1 * iGasPriceRatio,
           fDelegateFee       = 0.2 * iGasPriceRatio,
-          fTxAmount          = 0.1,
+          fTxAmount          = 0.01,
           iTotalTestDuration = parseInt(oConfig.get('totalTestDuration')) || 60,// seconds
           iTotalTxPerWallet  = Math.round(iTotalTestDuration / 5),
           iTotalWalletsCount = parseInt(oConfig.get('totalWallets')) || 10;// workers
@@ -114,7 +114,7 @@ oMinterHelper.init()
                 await FundTest.run(oMinterHelper, {
                       arWallets     : arWalletInstances,
                       fSendFee      : fSendFee,
-                      fFundPerWallet: (fTxAmount + fDelegateFee) * iTotalTxPerWallet
+                      fFundPerWallet: (fTxAmount + fSendFee) * iTotalTxPerWallet
                     }
                 );
               }
