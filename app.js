@@ -62,8 +62,8 @@ oMinterHelper.init()
       const iGasPriceRatio = parseInt(oConfig.get('iGasPriceRatio')) || 60;
 
       const
-          fSendFee           = 0.1 * iGasPriceRatio,
-          fDelegateFee       = 0.2 * iGasPriceRatio,
+          fSendFee           = 0.01 * iGasPriceRatio,
+          fDelegateFee       = 0.02 * iGasPriceRatio,
           fTxAmount          = 0.01,
           iTotalTestDuration = parseInt(oConfig.get('totalTestDuration')) || 60,// seconds
           iTotalTxPerWallet  = Math.round(iTotalTestDuration / 5),
