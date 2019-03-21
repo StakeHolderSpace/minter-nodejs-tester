@@ -3,6 +3,8 @@
 'use strict';
 const axios = require('axios');
 
+require('dotenv').config();
+
 require = require('esm')(module);
 
 const
@@ -33,7 +35,9 @@ const
     oLogger    = require(sUtilsRoot + 'winston')(module),
     oMenu      = require(sUtilsRoot + 'menu');
 
-require('dotenv').config();
+
+
+console.log({NODE_ENV: process.env.NODE_ENV});
 
 //process.env.NODE_ENV = (oConfig.get('debug')) ? 'development' : 'production';
 
