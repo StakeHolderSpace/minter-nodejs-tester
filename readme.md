@@ -19,3 +19,7 @@ npm start
 Do first test **Fund**!
 
 In case You want to see verbose process, set NODE_ENV to 'development'
+
+#### Known issues
+Ubuntu 
+ * cp /minter-nodejs-tester/node_modules/figlet/lib/../fonts/Doom.flf /minter-nodejs-tester/node_modules/figlet/lib/../fonts/doom.flf

@@ -37,8 +37,6 @@ const
 
 
 
-console.log({NODE_ENV: process.env.NODE_ENV});
-
 //process.env.NODE_ENV = (oConfig.get('debug')) ? 'development' : 'production';
 
 process.title = 'Minter Overload Tests';
