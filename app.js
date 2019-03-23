@@ -35,10 +35,6 @@ const
     oLogger    = require(sUtilsRoot + 'winston')(module),
     oMenu      = require(sUtilsRoot + 'menu');
 
-
-
-//process.env.NODE_ENV = (oConfig.get('debug')) ? 'development' : 'production';
-
 process.title = 'Minter Overload Tests';
 process.on('uncaughtException', function(err) {
   oLogger.error('Caught exception: ' + err);
